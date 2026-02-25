@@ -1,0 +1,7 @@
+StringGeometry/Supermanifolds/Batchelor.lean
+StringGeometry/Supermanifolds/BerezinIntegration.lean
+StringGeometry/Supermanifolds/FPS/LogExp.lean
+StringGeometry/Supermanifolds/Helpers/FiniteGrassmann.lean
+StringGeometry/Supermanifolds/Helpers/FormalPowerSeries.lean
+StringGeometry/Supermanifolds/Helpers/SuperChainRule.lean
+StringGeometry/Supermanifolds/Integration/GlobalStokes.lean
