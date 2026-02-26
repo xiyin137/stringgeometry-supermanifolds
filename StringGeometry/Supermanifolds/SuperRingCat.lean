@@ -160,11 +160,11 @@ We bundle supercommutative algebras into a category.
     Morphisms are graded algebra homomorphisms.
 
     This follows the bundled category pattern from Mathlib. -/
-structure SuperRingCat (R : Type*) [CommRing R] where
+structure SuperRingCat (R : Type u) [CommRing R] where
   /-- The object constructor -/
   of ::
   /-- The underlying superalgebra -/
-  algebra : SuperAlgebra R
+  algebra : SuperAlgebra.{u, v} R
   /-- The supercommutative property -/
   [superComm : SuperCommutative algebra]
 
@@ -172,12 +172,12 @@ attribute [instance] SuperRingCat.superComm
 
 namespace SuperRingCat
 
-variable {R : Type*} [CommRing R]
+variable {R : Type u} [CommRing R]
 
 /-- The carrier type of a supercommutative algebra -/
-def carrier (A : SuperRingCat R) : Type* := A.algebra.carrier
+def carrier (A : SuperRingCat R) : Type v := A.algebra.carrier
 
-instance : CoeSort (SuperRingCat R) (Type*) :=
+instance : CoeSort (SuperRingCat R) (Type v) :=
   ⟨fun A => A.carrier⟩
 
 /-- The underlying superalgebra -/
@@ -210,7 +210,7 @@ theorem comp_hom {A B C : SuperRingCat R} (f : A ⟶ B) (g : B ⟶ C) :
     (f ≫ g).hom = g.hom.comp f.hom := rfl
 
 /-- The forgetful functor to types -/
-def forget : SuperRingCat R ⥤ Type* where
+def forget : SuperRingCat R ⥤ Type v where
   obj A := A.carrier
   map f := f.hom.toFun
 
