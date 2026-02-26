@@ -37,7 +37,7 @@ if [[ -n "$DISALLOWED" ]]; then
 fi
 
 echo "[2/3] Targeted module checks..."
-lake env lean StringGeometry/Supermanifolds.lean
-lake env lean StringGeometry/Supermanifolds/Integration/GlobalStokes.lean
+lake build SGSupermanifolds
+lake build StringGeometry.Supermanifolds.Integration.GlobalStokes
 
 echo "[3/3] Supermanifolds quality gate passed."

@@ -437,20 +437,18 @@ theorem expMatrixNilpotent_eq_of_le {n : ℕ}
 
 /-- expMatrixNilpotent equals IsNilpotent.exp for nilpotent matrices -/
 theorem expMatrixNilpotent_eq_IsNilpotent_exp {n : ℕ}
-    (A : Matrix (Fin n) (Fin n) S) (N : ℕ) (hNil : A^N = 0) :
-    expMatrixNilpotent A N = IsNilpotent.exp A := by
+    (A : Matrix (Fin n) (Fin n) S) (N : ℕ) (hNil : A^N = 0)
+    (hmod : Module ℚ (Matrix (Fin n) (Fin n) S)) :
+    expMatrixNilpotent A N = @IsNilpotent.exp (Matrix (Fin n) (Fin n) S) _ hmod A := by
+  letI : Module ℚ (Matrix (Fin n) (Fin n) S) := hmod
   unfold expMatrixNilpotent
   rw [IsNilpotent.exp_eq_sum hNil]
   rw [Finset.sum_range_succ]
   simp only [hNil, smul_zero, add_zero]
-  apply Finset.sum_congr rfl
+  refine Finset.sum_congr rfl ?_
   intro k _
-  -- LHS: (algebraMap S (Matrix...)) ((algebraMap ℚ S) (1 / ↑k!)) * A ^ k
-  -- RHS: (↑k!)⁻¹ • A ^ k
-  rw [show (1 : ℚ) / (↑k.factorial : ℚ) = (↑k.factorial : ℚ)⁻¹ from one_div _]
-  -- Now LHS is: (algebraMap ℚ S) (↑k!)⁻¹ • A ^ k, RHS is: (↑k!)⁻¹ • A ^ k
-  -- These are S-smul vs ℚ-smul; connected by algebraMap_smul
-  rw [algebraMap_smul]
+  ext i j
+  simp [Algebra.smul_def, one_div]
 
 /-- The trace of logMatrix equals logDetNilpotent -/
 theorem trace_logMatrix_eq_logDetNilpotent {n : ℕ}
