@@ -437,11 +437,18 @@ theorem expMatrixNilpotent_eq_of_le {n : ℕ}
 
 /-- expMatrixNilpotent equals IsNilpotent.exp for nilpotent matrices -/
 theorem expMatrixNilpotent_eq_IsNilpotent_exp {n : ℕ}
-    (A : Matrix (Fin n) (Fin n) S) (N : ℕ) (_hNil : A^N = 0) :
-    expMatrixNilpotent A N = expMatrixNilpotent A N := by
-  -- TODO: restore the intended statement against IsNilpotent.exp after
-  -- settling the required scalar-action instance plumbing for matrices.
-  rfl
+    (A : Matrix (Fin n) (Fin n) S) (N : ℕ) (hNil : A^N = 0)
+    (hmod : Module ℚ (Matrix (Fin n) (Fin n) S)) :
+    expMatrixNilpotent A N = @IsNilpotent.exp (Matrix (Fin n) (Fin n) S) _ hmod A := by
+  letI : Module ℚ (Matrix (Fin n) (Fin n) S) := hmod
+  unfold expMatrixNilpotent
+  rw [IsNilpotent.exp_eq_sum hNil]
+  rw [Finset.sum_range_succ]
+  simp only [hNil, smul_zero, add_zero]
+  refine Finset.sum_congr rfl ?_
+  intro k _
+  ext i j
+  simp [Algebra.smul_def, one_div]
 
 /-- The trace of logMatrix equals logDetNilpotent -/
 theorem trace_logMatrix_eq_logDetNilpotent {n : ℕ}
