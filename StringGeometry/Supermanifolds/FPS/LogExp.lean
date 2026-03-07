@@ -3,8 +3,11 @@ Copyright (c) 2024. All rights reserved.
 Released under Apache 2.0 license.
 -/
 import Mathlib.RingTheory.PowerSeries.Basic
+import Mathlib.RingTheory.PowerSeries.Exp
+import Mathlib.RingTheory.PowerSeries.WellKnown
 import Mathlib.Data.Nat.Factorial.Basic
 import Mathlib.Algebra.Algebra.Rat
+import Mathlib.Algebra.Module.Rat
 import Mathlib.RingTheory.Nilpotent.Exp
 import StringGeometry.Supermanifolds.FPS.Basic
 import StringGeometry.Supermanifolds.FPS.Composition
@@ -394,125 +397,285 @@ theorem neg_logOneSubNilpotent_eq (x : R) (N : ℕ) :
   unfold logOneSubNilpotent
   simp only [neg_neg]
 
+local instance : IsAddTorsionFree R := IsAddTorsionFree.of_module_rat (M := R)
+
+/-- The formal power series `log(1 / (1 - X)) = ∑_{n≥1} X^n / n`. -/
+noncomputable def logInvOneSubSeries : R⟦X⟧ :=
+  PowerSeries.mk fun n =>
+    if n = 0 then 0 else algebraMap ℚ R ((1 : ℚ) / n)
+
+@[simp] theorem coeff_logInvOneSubSeries_zero :
+    coeff 0 (logInvOneSubSeries (R := R)) = 0 := by
+  simp [logInvOneSubSeries]
+
+@[simp] theorem coeff_logInvOneSubSeries_succ (n : ℕ) :
+    coeff (n + 1) (logInvOneSubSeries (R := R)) =
+      algebraMap ℚ R ((1 : ℚ) / (n + 1)) := by
+  simp [logInvOneSubSeries]
+
+@[simp] theorem constantCoeff_logInvOneSubSeries :
+    constantCoeff (logInvOneSubSeries (R := R)) = 0 := by
+  simp [logInvOneSubSeries]
+
+theorem derivative_logInvOneSubSeries :
+    d⁄dX R (logInvOneSubSeries (R := R)) = (PowerSeries.mk 1 : R⟦X⟧) := by
+  ext n
+  rw [PowerSeries.coeff_derivative, coeff_logInvOneSubSeries_succ, PowerSeries.coeff_mk]
+  have hrat : ((1 : ℚ) / (n + 1 : ℚ)) * (n + 1 : ℚ) = 1 := by
+    field_simp
+  have hmap := congrArg (algebraMap ℚ R) hrat
+  simpa [RingHom.map_mul] using hmap
+
+omit [Algebra ℚ R] in
+theorem constantCoeff_subst_C_eq_sum_of_nilpotent
+    (f : R⟦X⟧) (a : R) (M : ℕ) (ha : a ^ (M + 1) = 0) :
+    constantCoeff (f.subst (C a)) =
+      ∑ k ∈ Finset.range (M + 1), coeff k f * a ^ k := by
+  have hsubst : PowerSeries.HasSubst (C a : R⟦X⟧) := by
+    change IsNilpotent (constantCoeff (C a : R⟦X⟧))
+    simpa using (show IsNilpotent a from ⟨M + 1, ha⟩)
+  have h0 :
+      MvPowerSeries.constantCoeff (f.subst (C a)) =
+        ∑ᶠ d : ℕ, coeff d f * MvPowerSeries.constantCoeff ((C a : R⟦X⟧) ^ d) := by
+    simpa using (PowerSeries.constantCoeff_subst (a := C a) (ha := hsubst) (f := f))
+  have h1 :
+      (∑ᶠ d : ℕ, coeff d f * MvPowerSeries.constantCoeff ((C a : R⟦X⟧) ^ d)) =
+        ∑ᶠ d : ℕ, coeff d f * a ^ d := by
+    apply finsum_congr
+    intro d
+    have hc : MvPowerSeries.constantCoeff ((C a : R⟦X⟧) ^ d) = a ^ d := by
+      change PowerSeries.constantCoeff ((C a : R⟦X⟧) ^ d) = a ^ d
+      rw [RingHom.map_pow, PowerSeries.constantCoeff_C]
+    rw [hc]
+  have h2 :
+      (∑ᶠ d : ℕ, coeff d f * a ^ d) =
+        ∑ k ∈ Finset.range (M + 1), coeff k f * a ^ k := by
+    rw [finsum_eq_sum_of_support_subset (s := Finset.range (M + 1))]
+    · intro d hd
+      simp only [Function.mem_support, Finset.mem_coe, Finset.mem_range] at hd ⊢
+      by_contra hd'
+      have hge : M + 1 ≤ d := by omega
+      have hpow : a ^ d = 0 := pow_eq_zero_of_le hge ha
+      rw [hpow, mul_zero] at hd
+      exact hd rfl
+  exact h0.trans (h1.trans h2)
+
+theorem constantCoeff_exp_subst_eq_expNilpotent_of_nilpotent
+    (b : R⟦X⟧) (hb : PowerSeries.HasSubst b) (M : ℕ)
+    (hM : (constantCoeff b) ^ (M + 1) = 0) :
+    constantCoeff ((PowerSeries.exp R).subst b) =
+      expNilpotent (constantCoeff b) M := by
+  have h0 :
+      MvPowerSeries.constantCoeff ((PowerSeries.exp R).subst b) =
+        ∑ᶠ d : ℕ, coeff d (PowerSeries.exp R) * MvPowerSeries.constantCoeff (b ^ d) := by
+    simpa using (PowerSeries.constantCoeff_subst (a := b) (ha := hb) (f := PowerSeries.exp R))
+  have h1 :
+      (∑ᶠ d : ℕ, coeff d (PowerSeries.exp R) * MvPowerSeries.constantCoeff (b ^ d)) =
+        ∑ᶠ d : ℕ, coeff d (PowerSeries.exp R) * (constantCoeff b) ^ d := by
+    apply finsum_congr
+    intro d
+    have hc : MvPowerSeries.constantCoeff (b ^ d) = (constantCoeff b) ^ d := by
+      change PowerSeries.constantCoeff (b ^ d) = (constantCoeff b) ^ d
+      rw [RingHom.map_pow]
+    rw [hc]
+  have h2 :
+      (∑ᶠ d : ℕ, coeff d (PowerSeries.exp R) * (constantCoeff b) ^ d) =
+        ∑ k ∈ Finset.range (M + 1), coeff k (PowerSeries.exp R) * (constantCoeff b) ^ k := by
+    rw [finsum_eq_sum_of_support_subset (s := Finset.range (M + 1))]
+    · intro d hd
+      simp only [Function.mem_support, Finset.mem_coe, Finset.mem_range] at hd ⊢
+      by_contra hd'
+      have hge : M + 1 ≤ d := by omega
+      have hpow : (constantCoeff b) ^ d = 0 := pow_eq_zero_of_le hge hM
+      rw [hpow, mul_zero] at hd
+      exact hd rfl
+  have h3 :
+      (∑ k ∈ Finset.range (M + 1), coeff k (PowerSeries.exp R) * (constantCoeff b) ^ k) =
+        expNilpotent (constantCoeff b) M := by
+    unfold expNilpotent
+    apply Finset.sum_congr rfl
+    intro k hk
+    rw [PowerSeries.coeff_exp]
+    rw [show ((1 : ℚ) / (k.factorial : ℚ)) = (k.factorial : ℚ)⁻¹ by simp [one_div]]
+    rw [Algebra.smul_def]
+  exact h0.trans (h1.trans (h2.trans h3))
+
+noncomputable def expLogInvOneSubSeries : R⟦X⟧ :=
+  (PowerSeries.exp R).subst (logInvOneSubSeries (R := R))
+
+theorem expLogInvOneSub_mul_one_sub_eq_one :
+    expLogInvOneSubSeries (R := R) * (1 - X) = 1 := by
+  let g : R⟦X⟧ := logInvOneSubSeries (R := R)
+  let F : R⟦X⟧ := (PowerSeries.exp R).subst g
+  have hg_subst : PowerSeries.HasSubst g := by
+    apply PowerSeries.HasSubst.of_constantCoeff_zero'
+    dsimp [g]
+    simp [logInvOneSubSeries]
+  have hderiv_F : d⁄dX R F = F * (PowerSeries.mk 1 : R⟦X⟧) := by
+    dsimp [F]
+    rw [PowerSeries.derivative_subst (A := R) hg_subst, PowerSeries.derivative_exp]
+    rw [derivative_logInvOneSubSeries]
+  have hconst_F : constantCoeff F = 1 := by
+    dsimp [F]
+    have hzero : constantCoeff ((PowerSeries.exp R - 1).subst g) = 0 := by
+      apply PowerSeries.constantCoeff_subst_eq_zero
+      · dsimp [g]
+        exact constantCoeff_logInvOneSubSeries (R := R)
+      · simp
+    have hexp : (1 : R⟦X⟧) + (PowerSeries.exp R - 1) = PowerSeries.exp R := by
+      abel
+    have hone_const : constantCoeff (((1 : R⟦X⟧)).subst g) = 1 := by
+      rw [show (1 : R⟦X⟧) = ((1 : Polynomial R) : R⟦X⟧) by simp]
+      rw [PowerSeries.subst_coe hg_subst]
+      have h : constantCoeff ((Polynomial.aeval g) (1 : Polynomial R)) = 1 := by simp
+      exact h
+    rw [← hexp, PowerSeries.subst_add hg_subst, map_add, hone_const, hzero]
+    simp
+  have hderiv_one_sub : d⁄dX R ((1 : R⟦X⟧) - X) = -1 := by
+    ext n
+    cases n with
+    | zero =>
+        rw [PowerSeries.coeff_derivative, PowerSeries.coeff_zero_eq_constantCoeff_apply]
+        rw [show (-1 : R⟦X⟧) = C (-1 : R) by simp, PowerSeries.constantCoeff_C]
+        simp [PowerSeries.coeff_X]
+    | succ n =>
+        rw [PowerSeries.coeff_derivative]
+        rw [show (-1 : R⟦X⟧) = C (-1 : R) by simp, PowerSeries.coeff_C]
+        simp [PowerSeries.coeff_X]
+  have hderiv_prod : d⁄dX R (F * (1 - X)) = 0 := by
+    calc
+      d⁄dX R (F * (1 - X))
+          = F * (d⁄dX R ((1 : R⟦X⟧) - X)) + ((1 : R⟦X⟧) - X) * (d⁄dX R F) := by
+            simpa [PowerSeries.derivative, smul_eq_mul] using
+              (PowerSeries.derivativeFun_mul (f := F) (g := ((1 : R⟦X⟧) - X)))
+      _ = F * (d⁄dX R ((1 : R⟦X⟧) - X)) + ((1 : R⟦X⟧) - X) * (d⁄dX R F) := by
+            rfl
+      _ = F * (-1) + ((1 : R⟦X⟧) - X) * (F * (PowerSeries.mk 1 : R⟦X⟧)) := by
+            rw [hderiv_one_sub, hderiv_F]
+      _ = F * (-1) + F * ((PowerSeries.mk 1 : R⟦X⟧) * ((1 : R⟦X⟧) - X)) := by
+            let A : R⟦X⟧ := (1 : R⟦X⟧) - X
+            have hmul1 : A * (F * (PowerSeries.mk 1 : R⟦X⟧)) =
+                (A * F) * (PowerSeries.mk 1 : R⟦X⟧) := by
+              exact (mul_assoc _ _ _).symm
+            have hmul2 : (A * F) * (PowerSeries.mk 1 : R⟦X⟧) =
+                (F * A) * (PowerSeries.mk 1 : R⟦X⟧) := by
+              exact congrArg (fun t : R⟦X⟧ => t * (PowerSeries.mk 1 : R⟦X⟧)) (mul_comm A F)
+            have hmul3 : (F * A) * (PowerSeries.mk 1 : R⟦X⟧) =
+                F * (A * (PowerSeries.mk 1 : R⟦X⟧)) := by
+              exact mul_assoc _ _ _
+            have hmul4 : F * (A * (PowerSeries.mk 1 : R⟦X⟧)) =
+                F * ((PowerSeries.mk 1 : R⟦X⟧) * A) := by
+              exact congrArg (fun t : R⟦X⟧ => F * t) (mul_comm A (PowerSeries.mk 1 : R⟦X⟧))
+            have hmul : A * (F * (PowerSeries.mk 1 : R⟦X⟧)) =
+                F * ((PowerSeries.mk 1 : R⟦X⟧) * A) := by
+              exact hmul1.trans (hmul2.trans (hmul3.trans hmul4))
+            dsimp [A] at hmul
+            exact congrArg (fun t : R⟦X⟧ => F * (-1) + t) hmul
+      _ = F * (-1) + F * 1 := by
+            rw [PowerSeries.mk_one_mul_one_sub_eq_one]
+      _ = 0 := by
+            ext n
+            rw [show coeff n (F * (-1 : R⟦X⟧) + F * (1 : R⟦X⟧)) =
+                coeff n (F * (-1 : R⟦X⟧)) + coeff n (F * (1 : R⟦X⟧)) by
+                  exact (PowerSeries.coeff n).map_add _ _]
+            rw [show coeff n (0 : R⟦X⟧) = 0 by exact (PowerSeries.coeff n).map_zero]
+            rw [show F * (-1 : R⟦X⟧) = C (-1 : R) * F by
+              rw [show (-1 : R⟦X⟧) = C (-1 : R) by simp]
+              exact mul_comm _ _]
+            rw [show F * (1 : R⟦X⟧) = C (1 : R) * F by
+              rw [show (1 : R⟦X⟧) = C (1 : R) by simp]
+              exact mul_comm _ _]
+            rw [PowerSeries.coeff_C_mul, PowerSeries.coeff_C_mul]
+            simp
+  have hconst_prod : constantCoeff (F * (1 - X)) = constantCoeff (1 : R⟦X⟧) := by
+    rw [map_mul]
+    simp [hconst_F]
+  have hmain : F * (1 - X) = 1 := by
+    have hderiv_prod' : d⁄dX R (F * (1 - X)) = d⁄dX R (1 : R⟦X⟧) := by
+      calc
+        d⁄dX R (F * (1 - X)) = 0 := hderiv_prod
+        _ = d⁄dX R (1 : R⟦X⟧) := by
+              symm
+              simpa using (PowerSeries.derivative_C (R := R) (r := (1 : R)))
+    exact PowerSeries.derivative.ext hderiv_prod' hconst_prod
+  simpa [F, expLogInvOneSubSeries] using hmain
+
 /-- exp(-L) equals the geometric series ∑ x^k.
     This follows from the ODE: let f = exp(g)·(1-x) where g = -L.
     Then f' = exp(g)·g'·(1-x) - exp(g) = exp(g)·(g'·(1-x) - 1) = 0 since g'·(1-x) = 1.
     With f(0) = 1, we get f = 1, i.e., exp(-L)·(1-x) = 1. -/
-theorem expNilpotent_neg_log_eq_geom (x : R) (N : ℕ) (hN : 1 ≤ N) (hx : x ^ (N + 1) = 0) :
+theorem expNilpotent_neg_log_eq_geom (x : R) (N : ℕ) (_hN : 1 ≤ N) (hx : x ^ (N + 1) = 0) :
     expNilpotent (-logOneSubNilpotent x N) (N + 1) = ∑ k ∈ range (N + 1), x ^ k := by
-  /-
-  This is the standard FPS identity: exp(log(1/(1-x))) = 1/(1-x) = ∑ x^k.
-
-  Writing -L = xP where P = 1 + x/2 + x²/3 + ..., we have:
-    exp(xP) = ∑_j (1/j!) x^j P^j
-
-  The coefficient of x^k in exp(xP) is:
-    [x^k] exp(xP) = ∑_{j=0}^k (1/j!) [x^{k-j}] P^j
-
-  This equals 1 for all k, giving exp(xP) = ∑ x^k.
-
-  Verification for small k:
-    k=0: 1 ✓
-    k=1: 0 + [x^0]P = 1 ✓
-    k=2: 0 + [x^1]P + (1/2)[x^0]P² = 1/2 + 1/2 = 1 ✓
-    k=3: 0 + [x^2]P + (1/2)[x^1]P² + (1/6)[x^0]P³ = 1/3 + 1/2 + 1/6 = 1 ✓
-
-  The general identity follows from the generating function structure.
-  -/
+  let L : R := -logOneSubNilpotent x N
+  have hg_subst : PowerSeries.HasSubst (logInvOneSubSeries (R := R)) := by
+    apply PowerSeries.HasSubst.of_constantCoeff_zero'
+    simp [logInvOneSubSeries]
+  have hx_subst : PowerSeries.HasSubst (C x : R⟦X⟧) := by
+    change IsNilpotent (constantCoeff (C x : R⟦X⟧))
+    simpa using (show IsNilpotent x from ⟨N + 1, hx⟩)
+  have hLconst :
+      constantCoeff ((logInvOneSubSeries (R := R)).subst (C x)) = L := by
+    rw [constantCoeff_subst_C_eq_sum_of_nilpotent
+      (f := logInvOneSubSeries (R := R)) (a := x) (M := N) hx]
+    rw [Finset.sum_range_succ']
+    simp [L, coeff_logInvOneSubSeries_succ]
+    simpa [L] using (neg_logOneSubNilpotent_eq (R := R) x N).symm
+  have hLnil_base : (logOneSubNilpotent x N) ^ (N + 1) = 0 :=
+    logOneSubNilpotent_nilpotent (R := R) x N hx
+  have hLnil : L ^ (N + 2) = 0 := by
+    dsimp [L]
+    rw [pow_succ, neg_eq_neg_one_mul, mul_pow, hLnil_base]
+    simp
+  have hLog_subst : PowerSeries.HasSubst ((logInvOneSubSeries (R := R)).subst (C x)) := by
+    change IsNilpotent (constantCoeff ((logInvOneSubSeries (R := R)).subst (C x)))
+    rw [hLconst]
+    exact ⟨N + 2, hLnil⟩
+  have hExp_const :
+      constantCoeff (((PowerSeries.exp R).subst ((logInvOneSubSeries (R := R)).subst (C x)))) =
+        expNilpotent L (N + 1) := by
+    have htmp :=
+      constantCoeff_exp_subst_eq_expNilpotent_of_nilpotent
+        (b := (logInvOneSubSeries (R := R)).subst (C x)) (hb := hLog_subst) (M := N + 1) (by
+          rw [hLconst]
+          exact hLnil)
+    rw [hLconst] at htmp
+    exact htmp
+  have hOneSub_const :
+      constantCoeff (((1 - X : R⟦X⟧)).subst (C x)) = 1 - x := by
+    rw [show (1 - X : R⟦X⟧) = ((1 - Polynomial.X : Polynomial R) : R⟦X⟧) by simp]
+    rw [PowerSeries.subst_coe hx_subst]
+    have hpoly : (Polynomial.aeval (C x)) (1 - Polynomial.X : Polynomial R) = (1 : R⟦X⟧) - C x := by
+      have h :=
+        RingHom.map_sub ((Polynomial.aeval (C x)).toRingHom) (1 : Polynomial R) Polynomial.X
+      change (Polynomial.aeval (C x)) (1 - Polynomial.X : Polynomial R) =
+        (Polynomial.aeval (C x)) (1 : Polynomial R) - (Polynomial.aeval (C x)) Polynomial.X at h
+      rw [Polynomial.aeval_one, Polynomial.aeval_X] at h
+      exact h
+    refine hpoly ▸ ?_
+    rw [map_sub, PowerSeries.constantCoeff_one, PowerSeries.constantCoeff_C]
+  have hScalar :
+      expNilpotent L (N + 1) * (1 - x) = 1 := by
+    have hone_sub_const : constantCoeff (((1 : R⟦X⟧)).subst (C x)) = 1 := by
+      rw [show (1 : R⟦X⟧) = ((1 : Polynomial R) : R⟦X⟧) by simp]
+      rw [PowerSeries.subst_coe hx_subst]
+      rw [Polynomial.aeval_one, PowerSeries.constantCoeff_one]
+    have hps_sub :
+        (((expLogInvOneSubSeries (R := R)) * (1 - X)).subst (C x)) = ((1 : R⟦X⟧).subst (C x)) := by
+      exact congrArg (PowerSeries.subst (C x))
+        (expLogInvOneSub_mul_one_sub_eq_one (R := R))
+    have hconst_sub := congrArg PowerSeries.constantCoeff hps_sub
+    rw [PowerSeries.subst_mul hx_subst, map_mul] at hconst_sub
+    rw [expLogInvOneSubSeries, PowerSeries.subst_comp_subst_apply hg_subst hx_subst] at hconst_sub
+    rw [hExp_const, hOneSub_const, hone_sub_const] at hconst_sub
+    simpa [L] using hconst_sub
   have hgeom : (∑ k ∈ range (N + 1), x ^ k) * (1 - x) = 1 := by
     rw [geom_sum_mul_neg, hx, sub_zero]
-  /-
-  **Differential Equation Proof:**
-
-  The key insight is that logOneSubNilpotent x N = logOneSubNilpotent x (N+1) when x^{N+1} = 0,
-  because the extra term x^{N+1}/(N+1) vanishes.
-
-  Using the extended bound N+1:
-  - derivLogOneSubNilpotent x (N+1) = -(1 + x + ... + x^N)
-  - derivLogOneSubNilpotent x (N+1) · (1-x) = -1 (by derivLog_mul_one_sub with x^{N+1} = 0)
-
-  For -L = -logOneSubNilpotent x N:
-  - deriv(-L) = -derivL = (1 + x + ... + x^N)
-  - deriv(-L) · (1-x) = 1
-
-  The ODE for h = exp(-L) · (1-x):
-  - h' = exp(-L) · deriv(-L) · (1-x) - exp(-L) = exp(-L) · (1 - 1) = 0
-  - h(0) = exp(0) · 1 = 1
-  - Therefore h = 1, i.e., exp(-L) · (1-x) = 1.
-  -/
-
-  -- Key: logOneSubNilpotent x N = logOneSubNilpotent x (N+1) when x^{N+1} = 0
-  have hlog_eq : logOneSubNilpotent x N = logOneSubNilpotent x (N + 1) := by
-    unfold logOneSubNilpotent
-    rw [sum_range_succ]
-    simp only [hx, mul_zero, add_zero]
-
-  -- For -L, the derivative times (1-x) equals 1
-  have hderiv_neg : -derivLogOneSubNilpotent x (N + 1) * (1 - x) = 1 := by
-    have h := derivLog_mul_one_sub x (N + 1) hx
-    -- h : derivLogOneSubNilpotent x (N + 1) * (1 - x) = -1
-    -- Goal: -derivLogOneSubNilpotent x (N + 1) * (1 - x) = 1
-    rw [neg_mul, h, neg_neg]
-
-  -- The ODE argument: exp(-L) · (1-x) = 1
-  -- This requires the chain rule D(exp(f)) = exp(f) · D(f) and showing h' = 0.
-  -- For polynomial expressions in nilpotent x, this follows from coefficient analysis.
-  -- The coefficient [x^k] exp(-L) = 1 for all k ≤ N (proven by the recurrence k·a_k = Σ_{j<k} a_j).
-  -- Therefore exp(-L) · (1-x) has [x^0] = 1 and [x^k] = 1 - 1 = 0 for k ≥ 1.
-
-  -- Since (∑ x^k) · (1-x) = 1 (by hgeom), and exp(-L) · (1-x) = 1 (by ODE),
-  -- both exp(-L) and ∑ x^k are the unique inverse of (1-x), hence equal.
-
-  -- Key insight: use exp(L) · exp(-L) = 1 together with the main theorem approach.
-  -- We prove this by showing that multiplying both sides by exp(L) gives the same result.
-  -- exp(L) · exp(-L) = 1 and exp(L) · (∑ x^k) = ?
-  -- From the main theorem: exp(L) = 1 - x, so exp(L) · (∑ x^k) = (1-x) · (∑ x^k) = 1.
-  -- Therefore exp(-L) = ∑ x^k (both have product 1 with exp(L)).
-
-  -- However, this uses the main theorem which we're trying to prove!
-  -- The non-circular proof requires the coefficient identity directly.
-
-  -- Alternative: Show exp(-L) · (1-x) = 1 by direct polynomial expansion.
-  -- exp(-L) = 1 + (-L) + (-L)²/2! + ... where -L = x + x²/2 + ... + x^N/N
-  -- Since -L = x·P with P = 1 + x/2 + ..., we have (-L)^j = x^j · P^j.
-  -- The coefficient of x^k in exp(-L) is ∑_{j=0}^k (1/j!) · [x^{k-j}]P^j = 1.
-  -- This follows from the generating function identity for exp(log(1/(1-x))) = 1/(1-x).
-
-  -- For the Lean proof, we use the fact that both exp(-L) and ∑x^k satisfy:
-  -- 1. f · (1-x) = 1
-  -- 2. These are the unique such f (since (1-x) is a unit with unique inverse)
-  -- Therefore exp(-L) = ∑ x^k.
-
-  -- From hgeom: (∑ x^k) is the inverse of (1-x).
-  -- We need to show exp(-L) is also the inverse of (1-x).
-  -- That is: exp(-L) · (1-x) = 1 AND (1-x) · exp(-L) = 1.
-  -- In a commutative ring, these are equivalent.
-
-  -- The product exp(-L) · (1-x) = 1 follows from the coefficient identity:
-  -- [x^k](exp(-L) · (1-x)) = [x^k]exp(-L) - [x^{k-1}]exp(-L) = 1 - 1 = 0 for k ≥ 1
-  -- [x^0](exp(-L) · (1-x)) = [x^0]exp(-L) = 1
-  -- Hence exp(-L) · (1-x) = 1.
-
-  -- Since (∑ x^k) is the unique inverse of (1-x), exp(-L) = ∑ x^k.
-  -- The uniqueness follows from: if f · (1-x) = 1 = g · (1-x), then f = g
-  -- (multiply both by (1-x)^{-1} = ∑ x^k on the right).
-
-  -- Formal proof: show exp(-L) = ∑ x^k by showing they have the same product with (1-x).
-  have hexp_neg_one_sub : expNilpotent (-logOneSubNilpotent x N) (N + 1) * (1 - x) = 1 := by
-    -- This is the key claim: exp(-L) · (1-x) = 1
-    -- It follows from the ODE argument: h = exp(-L)·(1-x) satisfies h' = 0 with h(0) = 1.
-    -- For polynomial expressions, h' = 0 means h is constant = h(0) = 1.
-    -- The derivative h' = exp(-L) · ((-L)' · (1-x) - 1) = exp(-L) · (1 - 1) = 0
-    -- using hderiv_neg: (-L)' · (1-x) = 1.
-    sorry
-
-  -- Since both exp(-L) and ∑ x^k multiply with (1-x) to give 1, and inverses are unique:
-  calc expNilpotent (-logOneSubNilpotent x N) (N + 1)
-      = expNilpotent (-logOneSubNilpotent x N) (N + 1) * 1 := by rw [mul_one]
-    _ = expNilpotent (-logOneSubNilpotent x N) (N + 1) * ((∑ k ∈ range (N + 1), x ^ k) * (1 - x)) := by rw [hgeom]
-    _ = (expNilpotent (-logOneSubNilpotent x N) (N + 1) * (∑ k ∈ range (N + 1), x ^ k)) * (1 - x) := by ring
-    _ = (expNilpotent (-logOneSubNilpotent x N) (N + 1) * (1 - x)) * (∑ k ∈ range (N + 1), x ^ k) := by ring
-    _ = 1 * (∑ k ∈ range (N + 1), x ^ k) := by rw [hexp_neg_one_sub]
+  calc
+    expNilpotent L (N + 1) = expNilpotent L (N + 1) * 1 := by rw [mul_one]
+    _ = expNilpotent L (N + 1) * ((∑ k ∈ range (N + 1), x ^ k) * (1 - x)) := by rw [hgeom]
+    _ = (expNilpotent L (N + 1) * (∑ k ∈ range (N + 1), x ^ k)) * (1 - x) := by ring
+    _ = (expNilpotent L (N + 1) * (1 - x)) * (∑ k ∈ range (N + 1), x ^ k) := by ring
+    _ = 1 * (∑ k ∈ range (N + 1), x ^ k) := by rw [hScalar]
     _ = ∑ k ∈ range (N + 1), x ^ k := by rw [one_mul]
 
 /-- exp(L) evaluated at x=0 gives exp(0) = 1.
