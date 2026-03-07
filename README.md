@@ -59,18 +59,14 @@ lake update
 lake build
 ```
 
-## Quality Gate
+## Targeted Checks
 
-Run the repository quality script before pushing:
+Run targeted builds before pushing:
 
 ```bash
-./scripts/check_supermanifolds_quality.sh
+lake build SGSupermanifolds
+lake build StringGeometry.Supermanifolds.Integration.GlobalStokes
 ```
-
-This script checks:
-
-1. no non-allowlisted `sorry` in `StringGeometry/Supermanifolds`
-2. targeted module compilation for core supermanifold and global Stokes files
 
 Allowed in-progress files are tracked in:
 

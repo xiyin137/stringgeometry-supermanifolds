@@ -400,6 +400,9 @@ open Finset Nat Matrix
 
 variable {S : Type*} [CommRing S] [Algebra ℚ S]
 
+instance matrixModuleQ {n : ℕ} : Module ℚ (Matrix (Fin n) (Fin n) S) := by
+  infer_instance
+
 /-! ### Matrix Definitions -/
 
 /-- Matrix logarithm for (1 - X) where X is nilpotent: log(1 - X) = -∑ X^k/k -/
@@ -437,18 +440,23 @@ theorem expMatrixNilpotent_eq_of_le {n : ℕ}
 
 /-- expMatrixNilpotent equals IsNilpotent.exp for nilpotent matrices -/
 theorem expMatrixNilpotent_eq_IsNilpotent_exp {n : ℕ}
-    (A : Matrix (Fin n) (Fin n) S) (N : ℕ) (hNil : A^N = 0)
-    (hmod : Module ℚ (Matrix (Fin n) (Fin n) S)) :
-    expMatrixNilpotent A N = @IsNilpotent.exp (Matrix (Fin n) (Fin n) S) _ hmod A := by
-  letI : Module ℚ (Matrix (Fin n) (Fin n) S) := hmod
-  unfold expMatrixNilpotent
-  rw [IsNilpotent.exp_eq_sum hNil]
-  rw [Finset.sum_range_succ]
-  simp only [hNil, smul_zero, add_zero]
-  refine Finset.sum_congr rfl ?_
-  intro k _
-  ext i j
-  simp [Algebra.smul_def, one_div]
+    (A : Matrix (Fin n) (Fin n) S) (N : ℕ) (hNil : A^N = 0) :
+    expMatrixNilpotent A N =
+      @IsNilpotent.exp (Matrix (Fin n) (Fin n) S) _ (matrixModuleQ (S := S)) A := by
+  symm
+  calc
+    @IsNilpotent.exp (Matrix (Fin n) (Fin n) S) _ (matrixModuleQ (S := S)) A
+        = ∑ k ∈ Finset.range N, (((k.factorial : ℚ)⁻¹ : ℚ)) • A ^ k := by
+            exact @IsNilpotent.exp_eq_sum
+              (Matrix (Fin n) (Fin n) S) _ (matrixModuleQ (S := S)) A N hNil
+    _ = expMatrixNilpotent A N := by
+          unfold expMatrixNilpotent
+          rw [Finset.sum_range_succ]
+          rw [hNil, smul_zero, add_zero]
+          refine Finset.sum_congr rfl ?_
+          intro k _
+          ext i j
+          simp [Algebra.smul_def, one_div]
 
 /-- The trace of logMatrix equals logDetNilpotent -/
 theorem trace_logMatrix_eq_logDetNilpotent {n : ℕ}

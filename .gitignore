@@ -2,3 +2,14 @@
 .elan/
 build/
 .DS_Store
+references/
+.mcp.json
+agent.md
+claude.md
+claudereview.md
+codexreview.md
+.vscode/
+.idea/
+*.swp
+*.swo
+*~

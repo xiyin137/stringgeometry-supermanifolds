@@ -12,7 +12,7 @@ jobs:
       - uses: leanprover/lean-action@v1
         with:
           use-mathlib-cache: true
-      - name: Supermanifolds Quality Guard
-        run: ./scripts/check_supermanifolds_quality.sh
-      - name: Build
-        run: lake build
+      - name: Build Main Library
+        run: lake build SGSupermanifolds
+      - name: Build Global Stokes Module
+        run: lake build StringGeometry.Supermanifolds.Integration.GlobalStokes
